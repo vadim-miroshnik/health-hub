@@ -1,0 +1,40 @@
+{
+  "sleep": [
+    {
+      "logId": 40002,
+      "dateOfSleep": "2026-04-15",
+      "startTime": "2026-04-14T23:30:00.000",
+      "endTime": "2026-04-15T07:00:00.000",
+      "duration": 27000000,
+      "efficiency": 82,
+      "isMainSleep": true,
+      "logType": "auto_detected",
+      "type": "classic",
+      "levels": {
+        "summary": {
+          "asleep":   {"count": 1,  "minutes": 390},
+          "restless": {"count": 18, "minutes": 42},
+          "awake":    {"count": 4,  "minutes": 18}
+        },
+        "data": [
+          {"dateTime": "2026-04-14T23:30:00", "level": "asleep",   "seconds": 7200},
+          {"dateTime": "2026-04-15T01:30:00", "level": "restless", "seconds": 120},
+          {"dateTime": "2026-04-15T01:32:00", "level": "asleep",   "seconds": 10800},
+          {"dateTime": "2026-04-15T04:32:00", "level": "awake",    "seconds": 300},
+          {"dateTime": "2026-04-15T04:37:00", "level": "asleep",   "seconds": 7680},
+          {"dateTime": "2026-04-15T06:45:00", "level": "restless", "seconds": 900}
+        ]
+      },
+      "minutesAsleep": 390,
+      "minutesAwake": 18,
+      "minutesToFallAsleep": 0,
+      "minutesAfterWakeup": 0,
+      "timeInBed": 450
+    }
+  ],
+  "summary": {
+    "totalMinutesAsleep": 390,
+    "totalSleepRecords": 1,
+    "totalTimeInBed": 450
+  }
+}

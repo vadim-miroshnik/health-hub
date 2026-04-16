@@ -1,0 +1,25 @@
+{
+  "activities-heart": [
+    {
+      "dateTime": "2026-04-15",
+      "value": {
+        "restingHeartRate": 58,
+        "heartRateZones": [
+          {"name": "Out of Range", "minutes": 892, "caloriesOut": 1423.2},
+          {"name": "Fat Burn",     "minutes": 312, "caloriesOut": 892.1},
+          {"name": "Cardio",       "minutes": 187, "caloriesOut": 634.5},
+          {"name": "Peak",         "minutes": 49,  "caloriesOut": 198.3}
+        ]
+      }
+    }
+  ],
+  "activities-heart-intraday": {
+    "dataset": [
+      {"time": "00:01:00", "value": 62},
+      {"time": "00:02:00", "value": 61},
+      {"time": "00:03:00", "value": 60}
+    ],
+    "datasetInterval": 1,
+    "datasetType": "minute"
+  }
+}

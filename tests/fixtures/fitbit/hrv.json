@@ -1,0 +1,14 @@
+{
+  "hrv": [
+    {
+      "dateTime": "2026-04-15",
+      "value": {
+        "dailyRmssd": 42.3,
+        "deepRmssd": 46.1,
+        "coverage": 0.94,
+        "lowFrequency": 1284.7,
+        "highFrequency": 742.3
+      }
+    }
+  ]
+}

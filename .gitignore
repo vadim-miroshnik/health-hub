@@ -1,0 +1,28 @@
+# Credentials & tokens
+.env
+tokens.json
+
+# Database & raw data
+data/health.db
+data/raw/
+
+# Logs
+logs/*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS
+.DS_Store

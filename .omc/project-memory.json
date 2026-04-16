@@ -1,0 +1,427 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1776323145983,
+  "projectRoot": "/Users/user/DEV/health-hub",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "pyproject.toml",
+          "requirements.txt"
+        ]
+      },
+      {
+        "name": "C/C++",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "Makefile"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "make build",
+    "testCommand": "make test",
+    "lintCommand": "ruff check",
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": "snake_case",
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "src",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "auth": {
+      "path": "auth",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1776323145976,
+      "keyFiles": [
+        "__init__.py",
+        "oauth_setup.py"
+      ]
+    },
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 2,
+      "lastAccessed": 1776323145977,
+      "keyFiles": [
+        "health.db"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1776323145977,
+      "keyFiles": [
+        "plan.md"
+      ]
+    },
+    "health_hub.egg-info": {
+      "path": "health_hub.egg-info",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1776323145977,
+      "keyFiles": [
+        "PKG-INFO",
+        "SOURCES.txt",
+        "dependency_links.txt",
+        "entry_points.txt",
+        "requires.txt"
+      ]
+    },
+    "logs": {
+      "path": "logs",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1776323145978,
+      "keyFiles": []
+    },
+    "mcp_server": {
+      "path": "mcp_server",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1776323145978,
+      "keyFiles": [
+        "__init__.py",
+        "server.py"
+      ]
+    },
+    "migrations": {
+      "path": "migrations",
+      "purpose": "Database migrations",
+      "fileCount": 3,
+      "lastAccessed": 1776323145978,
+      "keyFiles": [
+        "001_initial.sql",
+        "002_add_cpap.sql",
+        "003_add_o2ring.sql"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 12,
+      "lastAccessed": 1776323145978,
+      "keyFiles": [
+        "__init__.py",
+        "backfill.py",
+        "collector.py",
+        "cpap_parser.py",
+        "db.py"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 2,
+      "lastAccessed": 1776323145978,
+      "keyFiles": [
+        "__init__.py",
+        "conftest.py"
+      ]
+    },
+    "tests/fixtures": {
+      "path": "tests/fixtures",
+      "purpose": "Test fixtures",
+      "fileCount": 0,
+      "lastAccessed": 1776323145979,
+      "keyFiles": []
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/db.py",
+      "accessCount": 30,
+      "lastAccessed": 1776341804998,
+      "type": "file"
+    },
+    {
+      "path": "src/collector.py",
+      "accessCount": 20,
+      "lastAccessed": 1776341851529,
+      "type": "directory"
+    },
+    {
+      "path": "src/cli/debug.py",
+      "accessCount": 19,
+      "lastAccessed": 1776341846477,
+      "type": "file"
+    },
+    {
+      "path": "src/cli/production.py",
+      "accessCount": 17,
+      "lastAccessed": 1776336639716,
+      "type": "file"
+    },
+    {
+      "path": "docs/plan.md",
+      "accessCount": 16,
+      "lastAccessed": 1776331929144,
+      "type": "file"
+    },
+    {
+      "path": "src/fitbit_client.py",
+      "accessCount": 15,
+      "lastAccessed": 1776336550331,
+      "type": "directory"
+    },
+    {
+      "path": "src/main.py",
+      "accessCount": 13,
+      "lastAccessed": 1776336643186,
+      "type": "file"
+    },
+    {
+      "path": "mcp_server/server.py",
+      "accessCount": 13,
+      "lastAccessed": 1776337844484,
+      "type": "file"
+    },
+    {
+      "path": "src/o2ring_collector.py",
+      "accessCount": 10,
+      "lastAccessed": 1776336639631,
+      "type": "file"
+    },
+    {
+      "path": "tests/integration/test_collector.py",
+      "accessCount": 9,
+      "lastAccessed": 1776333436402,
+      "type": "file"
+    },
+    {
+      "path": "src/formatter.py",
+      "accessCount": 8,
+      "lastAccessed": 1776336556806,
+      "type": "file"
+    },
+    {
+      "path": "src/telegram.py",
+      "accessCount": 8,
+      "lastAccessed": 1776336556920,
+      "type": "file"
+    },
+    {
+      "path": "src/migrations.py",
+      "accessCount": 7,
+      "lastAccessed": 1776336547032,
+      "type": "file"
+    },
+    {
+      "path": "src/cpap_parser.py",
+      "accessCount": 7,
+      "lastAccessed": 1776336556940,
+      "type": "file"
+    },
+    {
+      "path": "tests/e2e/test_cli_smoke.py",
+      "accessCount": 6,
+      "lastAccessed": 1776330715813,
+      "type": "file"
+    },
+    {
+      "path": "CLAUDE.md",
+      "accessCount": 6,
+      "lastAccessed": 1776331892727,
+      "type": "file"
+    },
+    {
+      "path": "src/backfill.py",
+      "accessCount": 6,
+      "lastAccessed": 1776336550922,
+      "type": "file"
+    },
+    {
+      "path": "tests/conftest.py",
+      "accessCount": 5,
+      "lastAccessed": 1776332144215,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_fitbit_client.py",
+      "accessCount": 5,
+      "lastAccessed": 1776333423988,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_db.py",
+      "accessCount": 4,
+      "lastAccessed": 1776330410376,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 4,
+      "lastAccessed": 1776336543591,
+      "type": "directory"
+    },
+    {
+      "path": "src/raw_store.py",
+      "accessCount": 4,
+      "lastAccessed": 1776336550733,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_migrations.py",
+      "accessCount": 3,
+      "lastAccessed": 1776325027057,
+      "type": "file"
+    },
+    {
+      "path": "migrations/003_add_o2ring.sql",
+      "accessCount": 3,
+      "lastAccessed": 1776333154123,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_telegram.py",
+      "accessCount": 3,
+      "lastAccessed": 1776333414527,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_collector_parsers.py",
+      "accessCount": 2,
+      "lastAccessed": 1776327677365,
+      "type": "file"
+    },
+    {
+      "path": "pyproject.toml",
+      "accessCount": 2,
+      "lastAccessed": 1776331021138,
+      "type": "file"
+    },
+    {
+      "path": "migrations/002_add_cpap.sql",
+      "accessCount": 2,
+      "lastAccessed": 1776332148943,
+      "type": "file"
+    },
+    {
+      "path": "migrations/004_expand_fitbit.sql",
+      "accessCount": 2,
+      "lastAccessed": 1776332149451,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 1,
+      "lastAccessed": 1776323281914,
+      "type": "directory"
+    },
+    {
+      "path": "tests/fixtures/fitbit/heart_rate.json",
+      "accessCount": 1,
+      "lastAccessed": 1776324979967,
+      "type": "file"
+    },
+    {
+      "path": "tests/fixtures/fitbit/azm.json",
+      "accessCount": 1,
+      "lastAccessed": 1776324980308,
+      "type": "file"
+    },
+    {
+      "path": "tests/fixtures/fitbit/br.json",
+      "accessCount": 1,
+      "lastAccessed": 1776324981322,
+      "type": "file"
+    },
+    {
+      "path": "tests/fixtures/fitbit/spo2.json",
+      "accessCount": 1,
+      "lastAccessed": 1776324981901,
+      "type": "file"
+    },
+    {
+      "path": "tests/fixtures/fitbit/skin_temp.json",
+      "accessCount": 1,
+      "lastAccessed": 1776324982743,
+      "type": "file"
+    },
+    {
+      "path": "tests/fixtures/fitbit/cardio_score.json",
+      "accessCount": 1,
+      "lastAccessed": 1776324984116,
+      "type": "file"
+    },
+    {
+      "path": "tests/fixtures/fitbit/devices.json",
+      "accessCount": 1,
+      "lastAccessed": 1776324985788,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_parsers_extended.py",
+      "accessCount": 1,
+      "lastAccessed": 1776325005251,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_backfill.py",
+      "accessCount": 1,
+      "lastAccessed": 1776327762424,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_formatter.py",
+      "accessCount": 1,
+      "lastAccessed": 1776328137220,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_o2ring_collector.py",
+      "accessCount": 1,
+      "lastAccessed": 1776331400594,
+      "type": "file"
+    },
+    {
+      "path": "tests/unit/test_cpap_parser.py",
+      "accessCount": 1,
+      "lastAccessed": 1776331408813,
+      "type": "file"
+    },
+    {
+      "path": "auth/oauth_setup.py",
+      "accessCount": 1,
+      "lastAccessed": 1776332143936,
+      "type": "file"
+    },
+    {
+      "path": "migrations/001_initial.sql",
+      "accessCount": 1,
+      "lastAccessed": 1776332148454,
+      "type": "file"
+    },
+    {
+      "path": "tests",
+      "accessCount": 1,
+      "lastAccessed": 1776333390491,
+      "type": "directory"
+    }
+  ],
+  "userDirectives": []
+}

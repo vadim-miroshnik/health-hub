@@ -1,0 +1,12 @@
+{
+  "activities-active-zone-minutes": [
+    {
+      "dateTime": "2026-04-15",
+      "value": {
+        "fatBurnActiveZoneMinutes": 32,
+        "cardioActiveZoneMinutes": 18,
+        "peakActiveZoneMinutes": 5
+      }
+    }
+  ]
+}
