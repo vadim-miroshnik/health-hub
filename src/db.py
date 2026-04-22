@@ -800,6 +800,7 @@ class Database:
             "heart_rate": self.get_heart_rate(date),
             "azm": self.get_azm(date),
             "activity_log": self.get_activity_log(date),
+            "sync_status": self.get_sync_status(date),
         }
 
     def get_range(

@@ -6,7 +6,6 @@ concurrent dispatch from FastMCP worker threads does not share sqlite3
 objects across threads, and writes from MCP paths fail loudly.
 """
 
-import os
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path

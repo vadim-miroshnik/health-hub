@@ -5,7 +5,6 @@ devices raw file by date, and Database.save_devices must not accept `date`.
 
 import inspect
 
-import pytest
 
 from src.db import Database
 

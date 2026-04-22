@@ -331,6 +331,7 @@ class TestGetDay:
             "date", "nutrition", "activity", "sleep",
             "weight", "hrv", "cpap", "o2ring",
             "food_log", "health_metrics", "heart_rate", "azm", "activity_log",
+            "sync_status",
         }
 
     def test_empty_day_has_none_and_lists(self, db):

@@ -23,9 +23,13 @@ Claude Desktop config (~/.claude/claude_desktop_config.json):
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+
+if TYPE_CHECKING:
+    from src.db import Database
 
 if not os.environ.get("NO_DOTENV"):
     load_dotenv(override=True)
@@ -157,14 +161,36 @@ def get_heart_rate(date: str) -> dict | None:
         return db.get_heart_rate(date)
 
 
+_MAX_PAGE = 2000
+_DEFAULT_PAGE = 500
+
+
+def _page(limit: int | None, offset: int | None) -> tuple[int, int]:
+    """Clamp (limit, offset) to safe bounds: 1 ≤ limit ≤ _MAX_PAGE, offset ≥ 0."""
+    eff_limit = _DEFAULT_PAGE if limit is None else max(1, min(int(limit), _MAX_PAGE))
+    eff_offset = 0 if offset is None else max(0, int(offset))
+    return eff_limit, eff_offset
+
+
 @mcp.tool()
-def get_hr_intraday(date: str) -> list[dict]:
+def get_hr_intraday(
+    date: str,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> list[dict]:
     """
-    Minute-by-minute heart rate for a date (~1440 data points).
+    Minute-by-minute heart rate for a date (~1440 data points per full day).
+    Paginated: default limit 500, max 2000. Use `offset` to walk the day.
     Each entry: {time: 'HH:MM:SS', bpm: int}.
     """
+    eff_limit, eff_offset = _page(limit, offset)
     with _db() as db:
-        return db.get_hr_intraday(date)
+        rows = db.conn.execute(
+            "SELECT time, bpm FROM hr_intraday WHERE date = ? "
+            "ORDER BY time LIMIT ? OFFSET ?",
+            (date, eff_limit, eff_offset),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 @mcp.tool()
@@ -227,19 +253,25 @@ def get_oximetry(date: str) -> dict | None:
 
 
 @mcp.tool()
-def get_oximetry_data(date: str) -> list[dict]:
+def get_oximetry_data(
+    date: str,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> list[dict]:
     """
     4-second resolution SpO2, heart rate, and motion data for a night.
-    May contain up to ~9000 data points per session.
+    Up to ~9000 data points per session. Paginated: default limit 500,
+    max 2000. Use `offset` to walk the session.
     """
+    eff_limit, eff_offset = _page(limit, offset)
     with _db() as db:
         session = db.get_o2ring_session(date)
         if session is None:
             return []
         rows = db.conn.execute(
             "SELECT timestamp, spo2, heart_rate, motion FROM o2ring_data "
-            "WHERE session_id = ? ORDER BY timestamp",
-            (session["id"],),
+            "WHERE session_id = ? ORDER BY timestamp LIMIT ? OFFSET ?",
+            (session["id"], eff_limit, eff_offset),
         ).fetchall()
         return [dict(r) for r in rows]
 

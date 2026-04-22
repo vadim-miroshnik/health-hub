@@ -239,6 +239,16 @@ def format_day(data: dict) -> str:
             lines.append(line)
         lines.append("")
 
+    # --- Sync issues footer (P2.3) ---
+    sync_status = data.get("sync_status")
+    if sync_status and sync_status.get("status") and sync_status["status"] != "ok":
+        errors = sync_status.get("errors") or []
+        n = len(errors) if isinstance(errors, list) else 0
+        status_value = sync_status["status"]
+        label = f"Sync issues ({n})" if n else f"Sync status: {status_value}"
+        lines.append("⚠️ " + _esc(label))
+        has_content = True
+
     if not has_content:
         return ""
 

@@ -16,6 +16,7 @@ from src.cli.debug import (
     cmd_preview,
     cmd_show,
 )
+from src.cli.backup import cmd_backup
 from src.cli.production import cmd_backfill, cmd_daily, cmd_report, cmd_status
 from src.cli.serve_ingest import cmd_serve_ingest
 
@@ -86,6 +87,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_ingest.add_argument("--host", default=None,
                           help="Bind host (default 0.0.0.0 or HC_INGEST_HOST env)")
 
+    sub.add_parser(
+        "backup",
+        help="Snapshot health.db to data/backups/health-YYYYMMDD.db and rotate",
+    )
+
     return parser
 
 
@@ -109,6 +115,7 @@ def main() -> None:
         "cpap-parse":   cmd_cpap_parse,
         "o2ring-parse": cmd_o2ring_parse,
         "serve-ingest": cmd_serve_ingest,
+        "backup":       cmd_backup,
     }
 
     try:

@@ -8,6 +8,7 @@ Fitbit API client с OAuth2 auto-refresh и rate limiting.
 """
 
 import json
+import logging
 import os
 import time
 from collections import deque
@@ -18,6 +19,8 @@ from dotenv import load_dotenv
 
 if not os.environ.get("NO_DOTENV"):
     load_dotenv(override=True)
+
+logger = logging.getLogger(__name__)
 
 TOKEN_URL = "https://api.fitbit.com/oauth2/token"
 API_BASE = "https://api.fitbit.com"
@@ -109,7 +112,7 @@ class FitbitClient:
 
         if resp.status_code == 429:
             retry_after = int(resp.headers.get("Retry-After", 60))
-            print(f"  Rate limited (429): waiting {retry_after}s...")
+            logger.warning("Fitbit rate-limited (429); waiting %ds", retry_after)
             time.sleep(retry_after)
             self._rate_wait()
             resp = self._do_get(endpoint, params)
@@ -163,7 +166,7 @@ class FitbitClient:
     def _fatal_auth(self, reason: str) -> None:
         """Отправляет алерт в Telegram и бросает AuthError."""
         msg = f"[health-hub] Ошибка авторизации Fitbit: {reason}"
-        print(f"ERROR: {msg}")
+        logger.error("%s", msg)
         if self._telegram_token and self._telegram_chat:
             try:
                 requests.post(
@@ -191,7 +194,7 @@ class FitbitClient:
         if len(self._request_times) >= self._rate_limit:
             sleep_for = _RATE_WINDOW - (now - self._request_times[0]) + 1
             if sleep_for > 0:
-                print(f"  Rate limit: жду {sleep_for:.0f}с...")
+                logger.info("Fitbit client-side rate-limit sleep %.0fs", sleep_for)
                 time.sleep(sleep_for)
 
     def _record_request(self) -> None:
