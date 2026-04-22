@@ -58,6 +58,18 @@ hhub-mcp                       # stdio MCP server для Claude Desktop
 - Миграции идемпотентны, применяются автоматически при открытии `Database`.
 - Health Connect записи дедуплицируются по `uid` (ON CONFLICT DO NOTHING).
 
+## Timezone policy
+
+Все `date` столбцы в БД — **локальная wall-clock дата** (часовой пояс пользователя, резидентно Europe/Moscow). UTC-нормализация на колонки `date` не применяется; для кросс-источниковых join по `date` источники выровнены по локальному календарному дню.
+
+- `daily_*`, `sleep_sessions.date_of_sleep`, `cpap_sessions.date`, `o2ring_sessions.date`, `sync_log.date`, `raw_files.date` — локальная дата.
+- `hc_records.start_time` / `end_time` — ISO8601 с TZ (UTC `Z` от Health Connect).
+- `hc_records.date` — производное: `date(start_time_local)` (конверсия `start_time` → локальный tz → дата). Формула живёт в `ingest_server.py`.
+- `ingested_at`, `synced_at`, `updated_at`, `fetched_at` — UTC ISO8601 (служебные timestamps).
+- DST-переходы принимаются как есть; 23- и 25-часовые сутки — валидные записи, не ошибка.
+
+Миграция `005_add_health_connect.sql` ссылается на эту политику в header-комментарии.
+
 ## Архитектура источников
 
 | Источник | Сбор | Хранение |

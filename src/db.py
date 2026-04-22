@@ -35,7 +35,14 @@ class Database:
         self,
         path: Path | str,
         migrations_dir: Path = _MIGRATIONS_DIR,
+        *,
+        readonly: bool = False,
     ) -> None:
+        if readonly:
+            self.conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            self.conn.row_factory = sqlite3.Row
+            return
+
         self.conn = sqlite3.connect(str(path))
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")

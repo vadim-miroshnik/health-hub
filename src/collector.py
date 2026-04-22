@@ -390,18 +390,20 @@ class Collector:
             except AuthError:
                 raise  # auth failures are fatal — don't swallow
             except requests.exceptions.HTTPError as exc:
-                if exc.response is not None and exc.response.status_code in (403, 404):
-                    # Device doesn't support this endpoint — not an error
+                # 404 = no data for this date / unsupported metric — silent.
+                # 403 = permission or scope issue — surface it.
+                if exc.response is not None and exc.response.status_code == 404:
                     pass
                 else:
                     errors.append(f"{kind}: {exc}")
             except Exception as exc:
                 errors.append(f"{kind}: {exc}")
 
-        # Devices endpoint has no date parameter — fetch once per day to track battery
+        # Devices endpoint is date-independent. We don't raw-archive it — the
+        # snapshot is small and the latest row lives in the `devices` table
+        # (`devices.updated_at` is the sole timestamp).
         try:
             devices_raw = self.client.get("/1/user/-/devices.json")
-            self.store.save_raw("fitbit", date, "devices", json.dumps(devices_raw))
             if isinstance(devices_raw, list):
                 self.db.save_devices(devices_raw)
         except AuthError:

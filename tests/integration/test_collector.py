@@ -175,7 +175,8 @@ class TestCollectDayFull:
     def test_raw_files_saved(self, collector, db, tmp_path):
         _mock_all_endpoints()
         collector.collect_day(DATE)
-        # Все эндпоинты должны быть в raw_files
+        # 12 per-date endpoints get raw-archived. `devices` is date-independent
+        # and its snapshot lives in the `devices` table (see P0.5).
         rows = db.conn.execute(
             "SELECT kind FROM raw_files WHERE source='fitbit' AND date=?", (DATE,)
         ).fetchall()
@@ -183,8 +184,8 @@ class TestCollectDayFull:
         assert kinds == {
             "nutrition", "water", "activity", "sleep", "weight", "hrv",
             "heart_rate", "azm", "br", "spo2", "skin_temp", "cardio_score",
-            "devices",
         }
+        assert "devices" not in kinds
 
 
 # ===========================================================================

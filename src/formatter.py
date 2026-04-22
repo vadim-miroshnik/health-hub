@@ -128,7 +128,7 @@ def format_day(data: dict) -> str:
             if dist:
                 parts.append(f"{_esc(f'{dist:.1f}')} км")
             if active_min:
-                parts.append(f"{active_min} акт\\.мин")
+                parts.append(f"{active_min} {_esc('акт.мин')}")
             lines.append("🏃 " + " · ".join(parts))
             has_content = True
             lines.append("")
@@ -209,7 +209,7 @@ def format_day(data: dict) -> str:
             tech_parts.append(f"Утечка {_esc(str(round(leak, 1)))} л/м")
         if p_min is not None and p_max is not None:
             tech_parts.append(
-                f"Давл {_esc(str(round(p_min, 1)))}\\-{_esc(str(round(p_max, 1)))}"
+                f"Давл {_esc(f'{round(p_min, 1)}-{round(p_max, 1)}')}"
             )
         if tech_parts:
             lines.append("  " + " · ".join(tech_parts))

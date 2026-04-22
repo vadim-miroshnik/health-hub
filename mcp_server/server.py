@@ -43,40 +43,20 @@ mcp = FastMCP(
 )
 
 
-_shared_db: "Database | None" = None
-
-
-class _SharedDB:
+def _db() -> "Database":
     """
-    Proxy that exposes Database via context manager WITHOUT closing the connection.
+    Open a fresh read-only SQLite connection per MCP tool call.
 
-    All MCP tools use ``with _db() as db:`` — if the underlying Database.__exit__
-    ran, it would call conn.close() and every subsequent tool call would raise
-    ProgrammingError.  This wrapper makes __exit__ a no-op so the shared
-    SQLite connection stays open for the lifetime of the MCP server process.
+    FastMCP may dispatch tools from worker threads; sqlite3 connections are
+    not safe to share across threads by default, and a shared writer-mode
+    connection inside an MCP process also risks contention with the collector
+    running in another process. Opening `mode=ro` via URI plus WAL on the
+    writer side lets readers and writers coexist without locking.
+
+    Write attempts through this connection raise `sqlite3.OperationalError`.
     """
-
-    def __init__(self, db: "Database") -> None:
-        self._db = db
-
-    # Forward attribute access to the real Database
-    def __getattr__(self, name: str):
-        return getattr(self._db, name)
-
-    def __enter__(self) -> "Database":
-        return self._db
-
-    def __exit__(self, *_) -> None:
-        pass  # intentionally keep the shared connection open
-
-
-def _db() -> _SharedDB:
-    """Return the shared Database connection (opened once per process)."""
-    global _shared_db
-    if _shared_db is None:
-        from src.db import Database
-        _shared_db = Database(_DB_PATH)
-    return _SharedDB(_shared_db)
+    from src.db import Database
+    return Database(_DB_PATH, readonly=True)
 
 
 # ===========================================================================
