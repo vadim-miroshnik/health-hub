@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 if not os.environ.get("NO_DOTENV"):
@@ -144,7 +144,7 @@ def healthcheck() -> dict:
     response_model=HCResponse,
     dependencies=[Depends(_require_auth)],
 )
-def ingest_health_connect(batch: HCBatch, request: Request) -> HCResponse:
+def ingest_health_connect(batch: HCBatch) -> HCResponse:
     """
     Ingest a batch of HC records.
 

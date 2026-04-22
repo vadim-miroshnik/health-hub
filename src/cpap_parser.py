@@ -141,6 +141,8 @@ class CpapParser:
 
             sig_map = {labels[i].strip(): i for i in range(n_signals)}
 
+            import numpy as np  # guaranteed — transitive pyedflib dep
+
             def _signal_stats(name: str) -> dict | None:
                 """Return {min, max, median, p95} for a named signal, or None."""
                 for label, idx in sig_map.items():
@@ -149,30 +151,15 @@ class CpapParser:
                     data = f.readSignal(idx)
                     if len(data) == 0:
                         return None
-                    filtered = [v for v in data if v > 0]
-                    if not filtered:
+                    arr = np.array([v for v in data if v > 0])
+                    if arr.size == 0:
                         return None
-                    try:
-                        import numpy as np
-                        arr = np.array(filtered)
-                        return {
-                            "min":    float(arr.min()),
-                            "max":    float(arr.max()),
-                            "median": float(np.median(arr)),
-                            "p95":    float(np.percentile(arr, 95)),
-                        }
-                    except ImportError:
-                        sorted_vals = sorted(filtered)
-                        n = len(sorted_vals)
-                        mid = n // 2
-                        median = (sorted_vals[mid] + sorted_vals[~mid]) / 2
-                        p95_idx = int(0.95 * n)
-                        return {
-                            "min":    float(sorted_vals[0]),
-                            "max":    float(sorted_vals[-1]),
-                            "median": float(median),
-                            "p95":    float(sorted_vals[min(p95_idx, n - 1)]),
-                        }
+                    return {
+                        "min":    float(arr.min()),
+                        "max":    float(arr.max()),
+                        "median": float(np.median(arr)),
+                        "p95":    float(np.percentile(arr, 95)),
+                    }
                 return None
 
             def _median(name: str) -> float | None:
