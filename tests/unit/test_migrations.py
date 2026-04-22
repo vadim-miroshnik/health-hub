@@ -10,6 +10,14 @@ from src.migrations import _current_version, run_migrations
 MIGRATIONS_DIR = Path(__file__).parent.parent.parent / "migrations"
 
 
+def _migration_count() -> int:
+    """Number of migration .sql files on disk — used so adding a migration
+    doesn't require editing these tests."""
+    import re
+    pat = re.compile(r"^(\d+)_.*\.sql$")
+    return sum(1 for p in MIGRATIONS_DIR.glob("*.sql") if pat.match(p.name))
+
+
 @pytest.fixture
 def conn():
     c = sqlite3.connect(":memory:")
@@ -24,12 +32,12 @@ def conn():
 class TestRunMigrations:
     def test_applies_all_migrations(self, conn):
         applied = run_migrations(conn, MIGRATIONS_DIR)
-        assert applied == 4
+        assert applied == _migration_count()
 
     def test_schema_version_updated(self, conn):
         run_migrations(conn, MIGRATIONS_DIR)
         version = _current_version(conn)
-        assert version == 4
+        assert version == _migration_count()
 
     def test_all_fitbit_tables_created(self, conn):
         run_migrations(conn, MIGRATIONS_DIR)
@@ -78,7 +86,7 @@ class TestIdempotency:
     def test_schema_version_unchanged_on_repeat(self, conn):
         run_migrations(conn, MIGRATIONS_DIR)
         run_migrations(conn, MIGRATIONS_DIR)
-        assert _current_version(conn) == 4
+        assert _current_version(conn) == _migration_count()
 
     def test_tables_not_duplicated(self, conn):
         run_migrations(conn, MIGRATIONS_DIR)

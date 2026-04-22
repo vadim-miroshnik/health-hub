@@ -17,6 +17,7 @@ from src.cli.debug import (
     cmd_show,
 )
 from src.cli.production import cmd_backfill, cmd_daily, cmd_report, cmd_status
+from src.cli.serve_ingest import cmd_serve_ingest
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,6 +76,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_o2r.add_argument("date", metavar="DATE", help="YYYY-MM-DD")
     p_o2r.add_argument("file", metavar="FILE", help="Path to CSV or binary file")
 
+    # Health Connect ingest server (Phase 10)
+    p_ingest = sub.add_parser(
+        "serve-ingest",
+        help="Run the Health Connect HTTP ingest server (uvicorn)",
+    )
+    p_ingest.add_argument("--port", type=int, default=None,
+                          help="TCP port (default 8765 or HC_INGEST_PORT env)")
+    p_ingest.add_argument("--host", default=None,
+                          help="Bind host (default 0.0.0.0 or HC_INGEST_HOST env)")
+
     return parser
 
 
@@ -97,6 +108,7 @@ def main() -> None:
         "preview":      cmd_preview,
         "cpap-parse":   cmd_cpap_parse,
         "o2ring-parse": cmd_o2ring_parse,
+        "serve-ingest": cmd_serve_ingest,
     }
 
     try:
