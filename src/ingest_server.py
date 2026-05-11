@@ -28,13 +28,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import uuid
 from datetime import date as date_type, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 if not os.environ.get("NO_DOTENV"):
     load_dotenv(override=True)
@@ -151,17 +152,43 @@ def healthcheck() -> dict:
     response_model=HCResponse,
     dependencies=[Depends(_require_auth)],
 )
-def ingest_health_connect(batch: HCBatch) -> HCResponse:
+async def ingest_health_connect(request: Request) -> HCResponse:
     """
     Ingest a batch of HC records.
 
-    1. Save the raw batch JSON to the raw data lake.
-    2. Insert each record with `ON CONFLICT(uid) DO NOTHING`. Duplicates are
+    1. Persist the raw request body verbatim BEFORE validation, so a future
+       schema-drift or pydantic config bug can never silently drop data —
+       we can re-parse from `incoming/` even if the validated archive is
+       wrong.
+    2. Validate with Pydantic (extra="allow" preserves rich nested fields).
+    3. Save the normalized batch JSON alongside the raw one.
+    4. Insert each record with `ON CONFLICT(uid) DO NOTHING`. Duplicates are
        counted via `rowcount` on each INSERT.
-    3. Return {ok, accepted, duplicates}.
+    5. Return {ok, accepted, duplicates}.
     """
-    # Write the raw batch to disk first — even if DB insert later fails, the
-    # push is durable and re-parseable.
+    raw_body = await request.body()
+
+    # Step 1 — raw body archive. Naming: `incoming/{today}/{iso_ts}_{nonce}.raw.json`.
+    # We don't yet know batch_id (haven't validated), so use server timestamp +
+    # short uuid. `today` here is the server-local date when the request landed.
+    incoming_dir = _raw_dir() / "health_connect" / "incoming" / date_type.today().isoformat()
+    incoming_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    nonce = uuid.uuid4().hex[:8]
+    raw_incoming_path = incoming_dir / f"{ts}_{nonce}.raw.json"
+    raw_incoming_path.write_bytes(raw_body)
+
+    # Step 2 — validate. On failure, raw is already on disk for forensics.
+    try:
+        batch = HCBatch.model_validate_json(raw_body)
+    except ValidationError as e:
+        logger.warning("hc-ingest validation failed for %s: %s", raw_incoming_path.name, e)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors(),
+        ) from e
+
+    # Step 3 — normalized archive (keyed by batch_id, easier to find later).
     batch_date = _local_date(batch.synced_at) if batch.records else date_type.today().isoformat()
     raw_target = _raw_dir() / "health_connect" / batch_date
     raw_target.mkdir(parents=True, exist_ok=True)
