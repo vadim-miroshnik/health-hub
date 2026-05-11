@@ -26,3 +26,6 @@ htmlcov/
 
 # macOS
 .DS_Store
+
+# OMC orchestrator state
+.omc/
