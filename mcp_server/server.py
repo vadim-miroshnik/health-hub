@@ -21,6 +21,7 @@ Claude Desktop config (~/.claude/claude_desktop_config.json):
     }
 """
 
+import json
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -284,6 +285,394 @@ def get_oximetry_range(start_date: str, end_date: str) -> list[dict]:
 
 
 # ===========================================================================
+# Health Connect tools (records pushed by Android Health Connect Bridge)
+#
+# All Health Connect records live in `hc_records`. `data_json` holds the
+# full payload as received; nested fields (SleepSession.stages,
+# Nutrition macros, etc.) are queried via SQLite json_extract.
+#
+# Date convention: `hc_records.date` is the local date of start_time.
+# Sleep sessions starting at 22:30 land under that evening's date, so
+# helpers that want "sleep ending on wake_date D" filter on end_time's
+# local date via the `localtime` modifier (relies on container TZ env).
+# ===========================================================================
+
+@mcp.tool()
+def get_hc_sleep(wake_date: str) -> list[dict]:
+    """
+    Sleep sessions whose local end time falls on `wake_date` (YYYY-MM-DD).
+    Each result includes a per-stage breakdown in minutes (deep/light/rem/awake)
+    plus total duration and the source app. The raw `stages` array (variable-
+    length intervals with start/end) is returned as `stages_raw` for callers
+    that want the full hypnogram.
+    """
+    with _db() as db:
+        rows = db.conn.execute(
+            """
+            SELECT uid, start_time, end_time, source_app, source_device, data_json,
+                   CAST((julianday(end_time) - julianday(start_time)) * 24 * 60 AS REAL)
+                       AS total_minutes
+            FROM hc_records
+            WHERE type='SleepSession'
+              AND date(end_time, 'localtime') = ?
+            ORDER BY start_time
+            """,
+            (wake_date,),
+        ).fetchall()
+
+        result = []
+        for r in rows:
+            data = json.loads(r["data_json"])
+            stages_raw = data.get("stages") or []
+            by_stage: dict[str, float] = {}
+            for s in stages_raw:
+                stage = s.get("stage")
+                if not stage:
+                    continue
+                start = s.get("start") or s.get("startTime")
+                end = s.get("end") or s.get("endTime")
+                if not (start and end):
+                    continue
+                # Use sqlite to get robust julianday math without re-parsing in Python
+                mins = db.conn.execute(
+                    "SELECT (julianday(?) - julianday(?)) * 24 * 60",
+                    (end, start),
+                ).fetchone()[0] or 0
+                by_stage[stage] = round(by_stage.get(stage, 0) + mins, 1)
+
+            result.append({
+                "uid": r["uid"],
+                "start_time": r["start_time"],
+                "end_time": r["end_time"],
+                "total_minutes": round(r["total_minutes"], 1),
+                "source_app": r["source_app"],
+                "source_device": r["source_device"],
+                "stages_minutes": by_stage,
+                "stages_raw": stages_raw,
+            })
+        return result
+
+
+@mcp.tool()
+def get_hc_sleep_range(start_date: str, end_date: str) -> list[dict]:
+    """
+    Sleep sessions for a wake-date range (inclusive). Returns per-night
+    totals: date, total_minutes, deep_minutes, light_minutes, rem_minutes,
+    awake_minutes, source_app. Useful for trend analysis.
+    """
+    with _db() as db:
+        rows = db.conn.execute(
+            """
+            SELECT uid, start_time, end_time, source_app, data_json,
+                   date(end_time, 'localtime') AS wake_date
+            FROM hc_records
+            WHERE type='SleepSession'
+              AND date(end_time, 'localtime') BETWEEN ? AND ?
+            ORDER BY end_time
+            """,
+            (start_date, end_date),
+        ).fetchall()
+
+        out = []
+        for r in rows:
+            data = json.loads(r["data_json"])
+            by_stage: dict[str, float] = {"deep": 0, "light": 0, "rem": 0, "awake": 0}
+            for s in (data.get("stages") or []):
+                stage = s.get("stage")
+                if stage not in by_stage:
+                    continue
+                start = s.get("start") or s.get("startTime")
+                end = s.get("end") or s.get("endTime")
+                if not (start and end):
+                    continue
+                mins = db.conn.execute(
+                    "SELECT (julianday(?) - julianday(?)) * 24 * 60",
+                    (end, start),
+                ).fetchone()[0] or 0
+                by_stage[stage] = round(by_stage[stage] + mins, 1)
+            total = db.conn.execute(
+                "SELECT (julianday(?) - julianday(?)) * 24 * 60",
+                (r["end_time"], r["start_time"]),
+            ).fetchone()[0] or 0
+            out.append({
+                "wake_date": r["wake_date"],
+                "uid": r["uid"],
+                "total_minutes": round(total, 1),
+                "deep_minutes": by_stage["deep"],
+                "light_minutes": by_stage["light"],
+                "rem_minutes": by_stage["rem"],
+                "awake_minutes": by_stage["awake"],
+                "source_app": r["source_app"],
+            })
+        return out
+
+
+@mcp.tool()
+def get_hc_hrv(date: str) -> dict | None:
+    """HRV (rMSSD) daily summary from Health Connect — avg/min/max + sample count."""
+    with _db() as db:
+        row = db.conn.execute(
+            "SELECT * FROM daily_hc_hrv WHERE date = ?",
+            (date,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+@mcp.tool()
+def get_hc_hrv_range(start_date: str, end_date: str) -> list[dict]:
+    """HRV trend (daily avg/min/max rMSSD) over a date range."""
+    with _db() as db:
+        rows = db.conn.execute(
+            "SELECT * FROM daily_hc_hrv WHERE date BETWEEN ? AND ? ORDER BY date",
+            (start_date, end_date),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+@mcp.tool()
+def get_hc_resting_hr(date: str) -> dict | None:
+    """Resting heart rate from Health Connect for a date (daily avg)."""
+    with _db() as db:
+        row = db.conn.execute(
+            "SELECT * FROM daily_hc_resting_hr WHERE date = ?",
+            (date,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+@mcp.tool()
+def get_hc_heart_rate_summary(date: str) -> dict | None:
+    """Heart rate aggregates (avg/min/max + sample count) over all HR samples for a date."""
+    with _db() as db:
+        row = db.conn.execute(
+            """
+            SELECT COUNT(*) AS samples,
+                   ROUND(AVG(value), 1) AS avg_bpm,
+                   MIN(value) AS min_bpm,
+                   MAX(value) AS max_bpm
+            FROM hc_records WHERE type='HeartRate' AND date = ?
+            """,
+            (date,),
+        ).fetchone()
+        if not row or row["samples"] == 0:
+            return None
+        return dict(row)
+
+
+@mcp.tool()
+def get_hc_spo2(date: str) -> dict | None:
+    """SpO2 (oxygen saturation) aggregates for a date — avg/min/max + sample count."""
+    with _db() as db:
+        row = db.conn.execute(
+            """
+            SELECT COUNT(*) AS samples,
+                   ROUND(AVG(value), 1) AS avg_spo2,
+                   MIN(value) AS min_spo2,
+                   MAX(value) AS max_spo2
+            FROM hc_records WHERE type='OxygenSaturation' AND date = ?
+            """,
+            (date,),
+        ).fetchone()
+        if not row or row["samples"] == 0:
+            return None
+        return dict(row)
+
+
+@mcp.tool()
+def get_hc_skin_temp(date: str) -> dict | None:
+    """Skin temperature daily summary from Health Connect (avg/min/max)."""
+    with _db() as db:
+        row = db.conn.execute(
+            "SELECT * FROM daily_hc_skin_temp WHERE date = ?",
+            (date,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+@mcp.tool()
+def get_hc_skin_temp_range(start_date: str, end_date: str) -> list[dict]:
+    """Skin temperature trend over a date range."""
+    with _db() as db:
+        rows = db.conn.execute(
+            "SELECT * FROM daily_hc_skin_temp WHERE date BETWEEN ? AND ? ORDER BY date",
+            (start_date, end_date),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+@mcp.tool()
+def get_hc_steps(date: str) -> int | None:
+    """Total steps for a date from Health Connect (sum across all Steps records)."""
+    with _db() as db:
+        row = db.conn.execute(
+            "SELECT SUM(value) AS total FROM hc_records WHERE type='Steps' AND date = ?",
+            (date,),
+        ).fetchone()
+        return int(row["total"]) if row and row["total"] is not None else None
+
+
+@mcp.tool()
+def get_hc_distance(date: str) -> float | None:
+    """Total distance for a date (sum of Distance records, unit comes from the records)."""
+    with _db() as db:
+        row = db.conn.execute(
+            "SELECT SUM(value) AS total, unit FROM hc_records "
+            "WHERE type='Distance' AND date = ? GROUP BY unit",
+            (date,),
+        ).fetchone()
+        return float(row["total"]) if row and row["total"] is not None else None
+
+
+@mcp.tool()
+def get_hc_calories(date: str) -> float | None:
+    """Total calories burned for a date (sum of TotalCaloriesBurned records)."""
+    with _db() as db:
+        row = db.conn.execute(
+            "SELECT SUM(value) AS total FROM hc_records "
+            "WHERE type='TotalCaloriesBurned' AND date = ?",
+            (date,),
+        ).fetchone()
+        return float(row["total"]) if row and row["total"] is not None else None
+
+
+@mcp.tool()
+def get_hc_floors(date: str) -> int | None:
+    """Floors climbed for a date (sum of FloorsClimbed records)."""
+    with _db() as db:
+        row = db.conn.execute(
+            "SELECT SUM(value) AS total FROM hc_records "
+            "WHERE type='FloorsClimbed' AND date = ?",
+            (date,),
+        ).fetchone()
+        return int(row["total"]) if row and row["total"] is not None else None
+
+
+@mcp.tool()
+def get_hc_weight(date: str) -> dict | None:
+    """Most recent Weight record on or before `date` (HC scalar value in kg)."""
+    with _db() as db:
+        row = db.conn.execute(
+            "SELECT start_time, value, unit, source_app FROM hc_records "
+            "WHERE type='Weight' AND date <= ? ORDER BY start_time DESC LIMIT 1",
+            (date,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+@mcp.tool()
+def get_hc_body_composition(date: str) -> dict:
+    """
+    Body composition snapshot for a date: BodyFat %, BodyWaterMass, BoneMass,
+    Height. Returns the most recent record of each type on or before `date`.
+    """
+    out: dict = {}
+    with _db() as db:
+        for t in ("BodyFat", "BodyWaterMass", "BoneMass", "Height"):
+            row = db.conn.execute(
+                "SELECT start_time, value, unit, source_app FROM hc_records "
+                "WHERE type=? AND date <= ? ORDER BY start_time DESC LIMIT 1",
+                (t, date),
+            ).fetchone()
+            if row:
+                out[t] = dict(row)
+    return out
+
+
+@mcp.tool()
+def get_hc_nutrition(date: str) -> list[dict]:
+    """
+    Nutrition entries for a date (each meal/snack with whatever macros the
+    source app supplied — see metadata in each record's data_json).
+    """
+    with _db() as db:
+        rows = db.conn.execute(
+            "SELECT uid, start_time, source_app, data_json FROM hc_records "
+            "WHERE type='Nutrition' AND date = ? ORDER BY start_time",
+            (date,),
+        ).fetchall()
+        return [
+            {**{k: r[k] for k in ("uid", "start_time", "source_app")},
+             "data": json.loads(r["data_json"])}
+            for r in rows
+        ]
+
+
+@mcp.tool()
+def get_hc_exercises(date: str) -> list[dict]:
+    """Exercise sessions for a date (workouts with start/end and any extra payload)."""
+    with _db() as db:
+        rows = db.conn.execute(
+            """
+            SELECT uid, start_time, end_time, source_app, data_json,
+                   CAST((julianday(end_time) - julianday(start_time)) * 24 * 60 AS REAL)
+                       AS minutes
+            FROM hc_records WHERE type='ExerciseSession' AND date = ?
+            ORDER BY start_time
+            """,
+            (date,),
+        ).fetchall()
+        return [
+            {"uid": r["uid"], "start_time": r["start_time"], "end_time": r["end_time"],
+             "minutes": round(r["minutes"], 1) if r["minutes"] else None,
+             "source_app": r["source_app"], "data": json.loads(r["data_json"])}
+            for r in rows
+        ]
+
+
+@mcp.tool()
+def get_hc_records(
+    date: str,
+    type: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> list[dict]:
+    """
+    Raw Health Connect records for a date. Filter by `type` (e.g. "BloodPressure",
+    "RespiratoryRate") to drill into a specific data type. Paginated.
+    """
+    eff_limit, eff_offset = _page(limit, offset)
+    sql = ("SELECT uid, type, start_time, end_time, value, unit, source_app, "
+           "source_device, data_json FROM hc_records WHERE date = ?")
+    params: list = [date]
+    if type:
+        sql += " AND type = ?"
+        params.append(type)
+    sql += " ORDER BY start_time LIMIT ? OFFSET ?"
+    params += [eff_limit, eff_offset]
+    with _db() as db:
+        rows = db.conn.execute(sql, params).fetchall()
+        return [
+            {**{k: r[k] for k in ("uid", "type", "start_time", "end_time",
+                                  "value", "unit", "source_app", "source_device")},
+             "data": json.loads(r["data_json"])}
+            for r in rows
+        ]
+
+
+@mcp.tool()
+def get_hc_record_types(date: str | None = None) -> list[dict]:
+    """
+    All record types present in `hc_records` with counts. Without `date` returns
+    the all-time totals; with `date` returns only that date. Useful as a first
+    call to see what data exists before drilling in.
+    """
+    with _db() as db:
+        if date:
+            rows = db.conn.execute(
+                "SELECT type, COUNT(*) AS count FROM hc_records WHERE date = ? "
+                "GROUP BY type ORDER BY count DESC",
+                (date,),
+            ).fetchall()
+        else:
+            rows = db.conn.execute(
+                "SELECT type, COUNT(*) AS count, MIN(start_time) AS earliest, "
+                "MAX(start_time) AS latest FROM hc_records "
+                "GROUP BY type ORDER BY count DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+# ===========================================================================
 # Cross-source tools
 # ===========================================================================
 
@@ -301,18 +690,26 @@ def get_day_summary(date: str) -> dict:
 @mcp.tool()
 def get_night_summary(date: str) -> dict:
     """
-    Night summary combining all sleep-related data for a date:
-    Fitbit sleep sessions, CPAP therapy, and O2Ring oximetry.
+    Night summary combining all sleep-related data for a wake date:
+    Fitbit sleep sessions, Health Connect sleep (with stages), CPAP
+    therapy, O2Ring oximetry, HRV (Fitbit + HC), and HC SpO2/skin temp.
     """
     with _db() as db:
-        return {
+        result = {
             "date": date,
-            "sleep": db.get_sleep_sessions(date),
+            "fitbit_sleep": db.get_sleep_sessions(date),
             "cpap": db.get_cpap_session(date),
             "o2ring": db.get_o2ring_session(date),
-            "hrv": db.get_hrv(date),
-            "health_metrics": db.get_health_metrics(date),
+            "fitbit_hrv": db.get_hrv(date),
+            "fitbit_health_metrics": db.get_health_metrics(date),
         }
+    # HC tools open their own connections — call them outside the with-block.
+    result["hc_sleep"] = get_hc_sleep(date)
+    result["hc_hrv"] = get_hc_hrv(date)
+    result["hc_spo2"] = get_hc_spo2(date)
+    result["hc_skin_temp"] = get_hc_skin_temp(date)
+    result["hc_resting_hr"] = get_hc_resting_hr(date)
+    return result
 
 
 @mcp.tool()
@@ -352,6 +749,22 @@ def get_status() -> dict:
                 result["sources"][key] = {
                     "first": row[0], "last": row[1], "days": row[2]
                 }
+
+        # Health Connect overview: per-type counts + global date range.
+        hc_range = db.conn.execute(
+            "SELECT MIN(date), MAX(date), COUNT(DISTINCT date) FROM hc_records"
+        ).fetchone()
+        if hc_range and hc_range[0]:
+            hc_types = db.conn.execute(
+                "SELECT type, COUNT(*) AS count FROM hc_records "
+                "GROUP BY type ORDER BY count DESC"
+            ).fetchall()
+            result["sources"]["health_connect"] = {
+                "first": hc_range[0],
+                "last": hc_range[1],
+                "days": hc_range[2],
+                "types": {r["type"]: r["count"] for r in hc_types},
+            }
 
         last_sync = db.conn.execute(
             "SELECT date, synced_at, status FROM sync_log ORDER BY date DESC LIMIT 1"
