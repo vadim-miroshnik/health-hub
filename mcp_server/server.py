@@ -782,8 +782,28 @@ def get_status() -> dict:
 def main():
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
     if transport == "sse":
+        from mcp.server.transport_security import TransportSecuritySettings
+
         mcp.settings.host = os.environ.get("MCP_HOST", "0.0.0.0")
         mcp.settings.port = int(os.environ.get("MCP_PORT", "8766"))
+
+        # FastMCP auto-enables DNS-rebinding protection at construction time
+        # because the default host is 127.0.0.1; overriding host afterwards
+        # leaves the localhost-only allow-list in place and remote clients
+        # get 421 "Invalid Host header". Set explicit allow-list (or disable
+        # entirely) for LAN access.
+        allowed = os.environ.get("MCP_ALLOWED_HOSTS", "*").strip()
+        if allowed == "*":
+            # Disable host-header check — safe behind a firewall / private LAN
+            mcp.settings.transport_security = TransportSecuritySettings(
+                enable_dns_rebinding_protection=False,
+            )
+        else:
+            mcp.settings.transport_security = TransportSecuritySettings(
+                enable_dns_rebinding_protection=True,
+                allowed_hosts=[h.strip() for h in allowed.split(",") if h.strip()],
+            )
+
     mcp.run(transport=transport)
 
 
