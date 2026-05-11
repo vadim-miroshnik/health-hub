@@ -212,10 +212,18 @@ class TestFetch:
 # ===========================================================================
 
 class TestStubs:
-    def test_daily_exits_nonzero_when_no_credentials(self):
+    def test_daily_skips_fitbit_when_no_credentials(self):
+        """
+        Fitbit is now optional (deprecated Sept 2026, registrations closed).
+        `hhub daily` must NOT crash without credentials — it logs the skip
+        and proceeds to report from whatever data is in the DB. With an
+        empty DB it still exits 1 ("No data to report"), which is fine.
+        """
         r = hhub("daily")
         assert r.returncode == 1
-        assert "FITBIT_CLIENT_ID" in r.stderr or "CLIENT_SECRET" in r.stderr
+        combined = r.stdout + r.stderr
+        assert "Fitbit collector skipped" in combined
+        assert "FITBIT_CLIENT_ID" in combined or "CLIENT_SECRET" in combined
 
     def test_backfill_exits_nonzero_when_no_credentials(self):
         r = hhub("backfill")
