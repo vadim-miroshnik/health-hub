@@ -70,6 +70,9 @@ services:
       DB_PATH: /app/data/health.db
     ports:
       - "8766:8766"
+    # data is mounted rw (not :ro) so SQLite WAL can manage its -shm/-wal
+    # sidecar files. The MCP server opens the DB with `mode=ro` URI in
+    # src/db.py, so writes are still impossible at the SDK level.
     volumes:
-      - ./data:/app/data:ro
+      - ./data:/app/data
     restart: unless-stopped
