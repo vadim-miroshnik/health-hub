@@ -142,7 +142,7 @@ from a single image:
 ### One-time setup
 
 ```bash
-git clone https://github.com/vadim-miroshnik/health-hub.git /opt/health-hub
+git clone git@github.com:vadim-miroshnik/health-hub.git /opt/health-hub
 cd /opt/health-hub
 
 cp .env.example .env
