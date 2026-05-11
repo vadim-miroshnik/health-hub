@@ -34,7 +34,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 if not os.environ.get("NO_DOTENV"):
     load_dotenv(override=True)
@@ -48,6 +48,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 class HCRecord(BaseModel):
+    # extra="allow" preserves rich nested fields like SleepSession.stages,
+    # ExerciseSession.segments, Nutrition macros — otherwise Pydantic v2
+    # silently drops them and we lose the most useful payload.
+    model_config = ConfigDict(extra="allow")
+
     uid: str = Field(..., min_length=1)
     type: str = Field(..., min_length=1)
     start_time: str
@@ -60,6 +65,8 @@ class HCRecord(BaseModel):
 
 
 class HCBatch(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     batch_id: str = Field(..., min_length=1)
     synced_at: str
     records: list[HCRecord] = Field(default_factory=list)
