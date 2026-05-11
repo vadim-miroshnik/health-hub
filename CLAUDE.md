@@ -56,7 +56,7 @@ hhub-mcp                       # stdio MCP server для Claude Desktop
 - Raw-файлы на диске (`data/raw/`) + структурированный SQLite (`data/health.db`) — два уровня хранения.
 - Посекундные CPAP-каналы **только** в EDF, не в БД.
 - Миграции идемпотентны, применяются автоматически при открытии `Database`.
-- Health Connect записи дедуплицируются по `uid` (ON CONFLICT DO NOTHING).
+- Health Connect записи идемпотентны по `uid`: повторный push того же `uid` UPSERT'ит `data_json`/timestamps (last-write-wins). Это позволяет re-sync чинить записи если Android-app начал слать обогащённый payload (например, добавил `stages` в `SleepSession`). Счётчик в ответе: `accepted` = первый раз для этого uid, `duplicates` = uid уже был, payload обновлён.
 
 ## Timezone policy
 

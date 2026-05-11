@@ -199,7 +199,11 @@ async def ingest_health_connect(request: Request) -> HCResponse:
         encoding="utf-8",
     )
 
-    # Insert records.
+    # Upsert records. We pre-check existence so the response can still
+    # distinguish first-time inserts from refreshes; the INSERT itself uses
+    # DO UPDATE so a re-sync with richer payload (e.g. SleepSession.stages
+    # that was missing before) overwrites the old row instead of being
+    # silently dropped as a "duplicate".
     from src.db import Database
     db = Database(_db_path())
     try:
@@ -209,13 +213,26 @@ async def ingest_health_connect(request: Request) -> HCResponse:
         for rec in batch.records:
             local_date = _local_date(rec.start_time)
             data_json = json.dumps(rec.model_dump(), ensure_ascii=False)
-            cur = db.conn.execute(
+            existed = db.conn.execute(
+                "SELECT 1 FROM hc_records WHERE uid=?", (rec.uid,),
+            ).fetchone() is not None
+            db.conn.execute(
                 """
                 INSERT INTO hc_records(
                     uid, type, start_time, end_time, date,
                     value, unit, source_app, source_device, data_json, ingested_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(uid) DO NOTHING
+                ON CONFLICT(uid) DO UPDATE SET
+                    type          = excluded.type,
+                    start_time    = excluded.start_time,
+                    end_time      = excluded.end_time,
+                    date          = excluded.date,
+                    value         = excluded.value,
+                    unit          = excluded.unit,
+                    source_app    = excluded.source_app,
+                    source_device = excluded.source_device,
+                    data_json     = excluded.data_json,
+                    ingested_at   = excluded.ingested_at
                 """,
                 (
                     rec.uid, rec.type, rec.start_time, rec.end_time, local_date,
@@ -223,10 +240,10 @@ async def ingest_health_connect(request: Request) -> HCResponse:
                     data_json, now,
                 ),
             )
-            if cur.rowcount:
-                accepted += 1
-            else:
+            if existed:
                 duplicates += 1
+            else:
+                accepted += 1
         db.conn.commit()
     finally:
         db.close()

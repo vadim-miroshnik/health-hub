@@ -172,6 +172,60 @@ class TestIngestDedup:
         finally:
             conn.close()
 
+    def test_duplicate_upserts_data_json(self, client: TestClient, configured_env):
+        """
+        Re-pushing the same uid with a richer payload must replace the row's
+        data_json — protects against the SleepSession.stages regression where
+        DO NOTHING silently kept the older, stripped-down version.
+        """
+        import json
+        srv, db_path, _ = configured_env
+
+        # First push: SleepSession without stages (mirrors the original bug).
+        first_rec = {
+            "uid": "sleep-upsert", "type": "SleepSession",
+            "start_time": "2026-05-11T00:00:00Z",
+            "end_time":   "2026-05-11T07:00:00Z",
+        }
+        client.post(
+            "/ingest/health-connect",
+            json={"batch_id": "first", "synced_at": "2026-05-11T08:00:00Z",
+                  "records": [first_rec]},
+            headers={"X-Auth-Token": "test-secret"},
+        )
+
+        # Second push: same uid, now with stages — must overwrite.
+        second_rec = {
+            **first_rec,
+            "stages": [
+                {"stage": "deep", "start": "2026-05-11T00:00:00Z",
+                 "end": "2026-05-11T01:00:00Z"},
+                {"stage": "rem",  "start": "2026-05-11T01:00:00Z",
+                 "end": "2026-05-11T02:00:00Z"},
+            ],
+        }
+        r = client.post(
+            "/ingest/health-connect",
+            json={"batch_id": "second", "synced_at": "2026-05-11T09:00:00Z",
+                  "records": [second_rec]},
+            headers={"X-Auth-Token": "test-secret"},
+        )
+        assert r.status_code == 200
+        assert r.json() == {"ok": True, "accepted": 0, "duplicates": 1}
+
+        import sqlite3
+        conn = sqlite3.connect(str(db_path))
+        try:
+            row = conn.execute(
+                "SELECT data_json FROM hc_records WHERE uid='sleep-upsert'"
+            ).fetchone()
+            stored = json.loads(row[0])
+            assert "stages" in stored, "stages must survive the upsert"
+            assert len(stored["stages"]) == 2
+            assert stored["stages"][0]["stage"] == "deep"
+        finally:
+            conn.close()
+
     def test_mixed_batch_counts_both(self, client: TestClient):
         recs = [_sample_record("rec-A"), _sample_record("rec-B")]
         client.post(
