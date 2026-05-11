@@ -180,11 +180,8 @@ def cmd_daily(args) -> None:
     from datetime import date
     from pathlib import Path
 
-    from src.collector import Collector
     from src.db import Database
-    from src.fitbit_client import FitbitClient
     from src.formatter import format_day
-    from src.raw_store import RawStore
     from src.telegram import TelegramClient
 
     db_path = Path(os.environ.get("DB_PATH", "data/health.db"))
@@ -193,28 +190,35 @@ def cmd_daily(args) -> None:
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     today = str(date.today())
-
-    from src.fitbit_client import AuthError
-
-    try:
-        client = FitbitClient.from_env()
-    except RuntimeError as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        sys.exit(1)
+    sources = _source_config()
 
     db = Database(db_path)
-    store = RawStore(db.conn, raw_dir)
-    collector = Collector(client, db, store)
 
-    print(f"Collecting data for {today}...")
-    try:
-        result = collector.collect_day(today, force=False)
-    except AuthError as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        db.close()
-        sys.exit(1)
-    if result.errors:
-        print(f"  partial — {result.errors}", file=sys.stderr)
+    if sources["fitbit"]["enabled"]:
+        from src.collector import Collector
+        from src.fitbit_client import AuthError, FitbitClient
+        from src.raw_store import RawStore
+
+        try:
+            client = FitbitClient.from_env()
+        except RuntimeError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            db.close()
+            sys.exit(1)
+
+        store = RawStore(db.conn, raw_dir)
+        collector = Collector(client, db, store)
+        print(f"Collecting Fitbit data for {today}...")
+        try:
+            result = collector.collect_day(today, force=False)
+        except AuthError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            db.close()
+            sys.exit(1)
+        if result.errors:
+            print(f"  partial — {result.errors}", file=sys.stderr)
+    else:
+        print(f"Fitbit collector skipped: {sources['fitbit']['reason']}")
 
     data = db.get_day(today)
     db.close()
@@ -248,6 +252,14 @@ def cmd_backfill(args) -> None:
     raw_dir = Path(os.environ.get("RAW_DATA_DIR", "data/raw"))
     db_path.parent.mkdir(parents=True, exist_ok=True)
     raw_dir.mkdir(parents=True, exist_ok=True)
+
+    sources = _source_config()
+    if not sources["fitbit"]["enabled"]:
+        print(
+            f"ERROR: backfill requires Fitbit credentials — {sources['fitbit']['reason']}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     from src.fitbit_client import AuthError
 
