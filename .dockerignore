@@ -1,0 +1,43 @@
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Local state (orchestrator, IDE, OS)
+.omc/
+.claude/
+.idea/
+.vscode/
+.DS_Store
+
+# Python build / cache
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Docs
+docs/
+*.md
+!README.md
+
+# Runtime data (mounted as volumes, not baked into image)
+data/
+logs/
+tokens.json
+.env
+.env.local
+
+# CI
+.github/

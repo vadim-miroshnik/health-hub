@@ -1,0 +1,17 @@
+# Health Hub scheduled jobs — runs inside hhub-cron container.
+# Cron daemon must run as root; jobs drop to the hhub user.
+# Times are container-local (set TZ in .env to match your locale, e.g. Europe/Moscow).
+
+SHELL=/bin/sh
+PATH=/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# 21:00 — collect today's Fitbit data and ship the Telegram report
+0 21 * * * root runuser -u hhub -- /opt/venv/bin/hhub daily >> /app/logs/daily.log 2>&1
+
+# 10:00 — pick up overnight CPAP EDFs after the bridge has uploaded
+0 10 * * * root runuser -u hhub -- /opt/venv/bin/hhub backfill --source cpap >> /app/logs/cpap.log 2>&1
+
+# 03:00 — online SQLite snapshot (WAL-safe), must not overlap the 21:00 window
+0  3 * * * root runuser -u hhub -- /opt/venv/bin/hhub backup >> /app/logs/backup.log 2>&1
+
+# Required trailing newline for /etc/cron.d entries — keep this line.

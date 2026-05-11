@@ -367,7 +367,11 @@ def get_status() -> dict:
 # ===========================================================================
 
 def main():
-    mcp.run(transport="stdio")
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+    if transport == "sse":
+        mcp.settings.host = os.environ.get("MCP_HOST", "0.0.0.0")
+        mcp.settings.port = int(os.environ.get("MCP_PORT", "8766"))
+    mcp.run(transport=transport)
 
 
 if __name__ == "__main__":

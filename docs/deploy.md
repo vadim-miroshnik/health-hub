@@ -128,6 +128,90 @@ server {
 }
 ```
 
+## Docker (recommended for home server)
+
+The repo ships a `Dockerfile` + `docker-compose.yml` that runs three services
+from a single image:
+
+| Service  | Process                                                | Port |
+|----------|--------------------------------------------------------|------|
+| `ingest` | `hhub serve-ingest` (uvicorn, Health Connect endpoint) | 8765 |
+| `cron`   | `cron -f` + `/etc/cron.d/hhub` (daily / cpap / backup) | —    |
+| `mcp`    | `hhub-mcp` with `MCP_TRANSPORT=sse`                    | 8766 |
+
+### One-time setup
+
+```bash
+git clone https://github.com/vadim-miroshnik/health-hub.git /opt/health-hub
+cd /opt/health-hub
+
+cp .env.example .env
+$EDITOR .env                  # fill FITBIT_*, TELEGRAM_*, HC_INGEST_AUTH_TOKEN, TZ
+
+# Fitbit OAuth — easiest path is to run `make auth` on a workstation
+# (it needs a browser) then copy tokens.json to the server.
+scp tokens.json server:/opt/health-hub/
+
+# Match host bind-mount perms to the in-image hhub user (uid 1000).
+sudo chown -R 1000:1000 data/ logs/ tokens.json
+
+docker compose build
+docker compose up -d
+```
+
+### Verification
+
+```bash
+curl -fsS http://localhost:8765/health
+# → {"ok":true}
+
+docker compose exec ingest hhub status
+docker compose exec ingest hhub db check
+docker compose exec ingest hhub telegram test
+
+# Cron is live — confirm the schedule registered:
+docker compose exec cron crontab -l -u root  # (cron.d is read directly; this is a sanity tail)
+docker compose logs -f cron                  # watch for job firings
+
+# MCP over SSE (for remote Claude Code / Claude Desktop with sse transport):
+curl -fsS http://localhost:8766/sse          # should hang open with SSE headers
+```
+
+### Initial backfill
+
+```bash
+docker compose exec ingest hhub backfill              # all Fitbit history
+docker compose exec ingest hhub backfill --source cpap
+```
+
+### Optional CPAP / O2Ring source mounts
+
+Uncomment the relevant volume lines in `docker-compose.yml` and point
+`CPAP_DATA_DIR` / `O2RING_DATA_DIR` in `.env` to the in-container paths
+(`/cpap`, `/o2ring`). BLE collection is intentionally **not** supported
+inside docker — use CSV/USB exports or run the BLE collector on the host.
+
+### Updating
+
+```bash
+git pull
+docker compose build
+docker compose up -d
+```
+
+### Logs
+
+- ingest stdout: `docker compose logs ingest`
+- cron jobs: `./logs/daily.log`, `./logs/cpap.log`, `./logs/backup.log` (bind-mounted)
+- Rotate with `find logs -mtime +30 -delete` from host cron.
+
+---
+
+## Bare-metal alternative
+
+Skip this section if running under docker. Kept for hosts that can't or
+don't want to use docker (very small SBCs, etc.).
+
 ## MCP server
 
 Claude Desktop (`~/.claude/claude_desktop_config.json`):

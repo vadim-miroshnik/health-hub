@@ -1,0 +1,75 @@
+# Health Hub — home-server deployment via docker compose.
+#
+# One image (built once), three services from it:
+#   - ingest : long-running uvicorn HTTP endpoint for Health Connect Bridge
+#   - cron   : in-container cron daemon (daily Fitbit pull + CPAP backfill + backup)
+#   - mcp    : MCP server over SSE for remote Claude access
+#
+# Prereqs on the host:
+#   - .env populated (copy from .env.example)
+#   - tokens.json present at repo root (run `make auth` on a workstation, scp over)
+#   - ./data dir writable by uid 1000 (matches the in-image hhub user)
+#
+# Quick start:
+#   docker compose build
+#   docker compose up -d ingest cron mcp
+#   curl -fsS http://localhost:8765/health      # {"ok":true}
+
+services:
+  ingest:
+    build:
+      context: .
+      target: runtime
+    image: health-hub:latest
+    container_name: hhub-ingest
+    command: ["hhub", "serve-ingest", "--host", "0.0.0.0", "--port", "8765"]
+    env_file: .env
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./tokens.json:/app/tokens.json
+      # Optional: bind-mount CPAP / O2Ring source dirs if you want
+      # them readable from the container. Set CPAP_DATA_DIR=/cpap
+      # and O2RING_DATA_DIR=/o2ring in .env when enabling these.
+      # - ${CPAP_DATA_DIR_HOST:-./.empty}:/cpap:ro
+      # - ${O2RING_DATA_DIR_HOST:-./.empty}:/o2ring:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3).status==200 else sys.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  cron:
+    image: health-hub:latest
+    container_name: hhub-cron
+    depends_on:
+      - ingest
+    # cron must run as root to read /etc/cron.d/hhub; the hhub commands
+    # themselves drop to uid 1000 via the runuser call in cron-entrypoint.sh
+    user: "0:0"
+    command: ["/usr/local/bin/cron-entrypoint.sh"]
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./tokens.json:/app/tokens.json
+    restart: unless-stopped
+
+  mcp:
+    image: health-hub:latest
+    container_name: hhub-mcp
+    command: ["hhub-mcp"]
+    environment:
+      MCP_TRANSPORT: sse
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8766"
+      DB_PATH: /app/data/health.db
+    ports:
+      - "8766:8766"
+    volumes:
+      - ./data:/app/data:ro
+    restart: unless-stopped
