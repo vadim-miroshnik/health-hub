@@ -560,6 +560,23 @@ def get_hc_weight(date: str) -> dict | None:
 
 
 @mcp.tool()
+def get_hc_weight_range(start_date: str, end_date: str) -> list[dict]:
+    """
+    Weight records over a date range (inclusive) from Health Connect.
+    Each entry: {date, start_time, value, unit, source_app}. Useful for
+    weight-trend analysis when Fitbit's `daily_weight` is empty (Health
+    Connect is the primary source).
+    """
+    with _db() as db:
+        rows = db.conn.execute(
+            "SELECT date, start_time, value, unit, source_app FROM hc_records "
+            "WHERE type='Weight' AND date BETWEEN ? AND ? ORDER BY start_time",
+            (start_date, end_date),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+@mcp.tool()
 def get_hc_body_composition(date: str) -> dict:
     """
     Body composition snapshot for a date: BodyFat %, BodyWaterMass, BoneMass,
@@ -576,6 +593,25 @@ def get_hc_body_composition(date: str) -> dict:
             if row:
                 out[t] = dict(row)
     return out
+
+
+@mcp.tool()
+def get_hc_body_composition_range(start_date: str, end_date: str) -> list[dict]:
+    """
+    Body composition samples over a date range (inclusive). Returns the raw
+    per-sample time series for BodyFat, BodyWaterMass, BoneMass, and Height
+    so callers can chart any of them independently.
+    Each entry: {date, type, start_time, value, unit, source_app}.
+    """
+    with _db() as db:
+        rows = db.conn.execute(
+            "SELECT date, type, start_time, value, unit, source_app FROM hc_records "
+            "WHERE type IN ('BodyFat','BodyWaterMass','BoneMass','Height') "
+            "  AND date BETWEEN ? AND ? "
+            "ORDER BY start_time",
+            (start_date, end_date),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 @mcp.tool()

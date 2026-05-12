@@ -128,6 +128,57 @@ class TestRecordTypes:
         assert counts == {"HeartRate": 2, "Weight": 1}
 
 
+class TestBodyRange:
+    def test_get_hc_weight_range_returns_samples_in_order(self, hc_db):
+        srv, mcp_srv, _ = hc_db
+        client = TestClient(srv.app)
+        _push(client, [
+            {"uid": "w-1", "type": "Weight",
+             "start_time": "2026-05-09T08:00:00Z",
+             "end_time":   "2026-05-09T08:00:00Z",
+             "value": 80.5, "unit": "kg", "source_app": "com.scale.app"},
+            {"uid": "w-2", "type": "Weight",
+             "start_time": "2026-05-10T08:00:00Z",
+             "end_time":   "2026-05-10T08:00:00Z",
+             "value": 80.2, "unit": "kg", "source_app": "com.scale.app"},
+            {"uid": "w-3", "type": "Weight",
+             "start_time": "2026-05-11T08:00:00Z",
+             "end_time":   "2026-05-11T08:00:00Z",
+             "value": 79.9, "unit": "kg", "source_app": "com.scale.app"},
+        ])
+
+        rng = mcp_srv.get_hc_weight_range("2026-05-09", "2026-05-11")
+        assert [r["value"] for r in rng] == [80.5, 80.2, 79.9]
+        assert all(r["unit"] == "kg" for r in rng)
+
+        # Window filtering: only middle day.
+        mid = mcp_srv.get_hc_weight_range("2026-05-10", "2026-05-10")
+        assert len(mid) == 1
+        assert mid[0]["value"] == 80.2
+
+    def test_get_hc_body_composition_range_mixes_types(self, hc_db):
+        srv, mcp_srv, _ = hc_db
+        client = TestClient(srv.app)
+        _push(client, [
+            {"uid": "bf-1", "type": "BodyFat",
+             "start_time": "2026-05-10T08:00:00Z",
+             "end_time":   "2026-05-10T08:00:00Z",
+             "value": 22.1, "unit": "%"},
+            {"uid": "bw-1", "type": "BodyWaterMass",
+             "start_time": "2026-05-10T08:01:00Z",
+             "end_time":   "2026-05-10T08:01:00Z",
+             "value": 45.0, "unit": "kg"},
+            {"uid": "bf-2", "type": "BodyFat",
+             "start_time": "2026-05-11T08:00:00Z",
+             "end_time":   "2026-05-11T08:00:00Z",
+             "value": 21.8, "unit": "%"},
+        ])
+
+        rng = mcp_srv.get_hc_body_composition_range("2026-05-09", "2026-05-12")
+        assert [r["type"]  for r in rng] == ["BodyFat", "BodyWaterMass", "BodyFat"]
+        assert [r["value"] for r in rng] == [22.1, 45.0, 21.8]
+
+
 class TestRawRecords:
     def test_get_hc_records_filter_by_type(self, hc_db):
         srv, mcp_srv, _ = hc_db
