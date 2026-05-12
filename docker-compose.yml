@@ -3,7 +3,7 @@
 # One image (built once), three services from it:
 #   - ingest : long-running uvicorn HTTP endpoint for Health Connect Bridge
 #   - cron   : in-container cron daemon (daily Fitbit pull + CPAP backfill + backup)
-#   - mcp    : MCP server over SSE for remote Claude access
+#   - mcp    : MCP server over streamable-http for remote Claude access
 #
 # Prereqs on the host:
 #   - .env populated (copy from .env.example)
@@ -64,7 +64,7 @@ services:
     container_name: hhub-mcp
     command: ["hhub-mcp"]
     environment:
-      MCP_TRANSPORT: sse
+      MCP_TRANSPORT: streamable-http
       MCP_HOST: 0.0.0.0
       MCP_PORT: "8766"
       DB_PATH: /app/data/health.db

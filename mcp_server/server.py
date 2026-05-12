@@ -781,7 +781,7 @@ def get_status() -> dict:
 
 def main():
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
-    if transport == "sse":
+    if transport in ("sse", "streamable-http"):
         from mcp.server.transport_security import TransportSecuritySettings
 
         mcp.settings.host = os.environ.get("MCP_HOST", "0.0.0.0")

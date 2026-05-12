@@ -137,7 +137,7 @@ from a single image:
 |----------|--------------------------------------------------------|------|
 | `ingest` | `hhub serve-ingest` (uvicorn, Health Connect endpoint) | 8765 |
 | `cron`   | `cron -f` + `/etc/cron.d/hhub` (daily / cpap / backup) | —    |
-| `mcp`    | `hhub-mcp` with `MCP_TRANSPORT=sse`                    | 8766 |
+| `mcp`    | `hhub-mcp` with `MCP_TRANSPORT=streamable-http`        | 8766 |
 
 ### One-time setup
 
@@ -173,8 +173,9 @@ docker compose exec ingest hhub telegram test
 docker compose exec cron crontab -l -u root  # (cron.d is read directly; this is a sanity tail)
 docker compose logs -f cron                  # watch for job firings
 
-# MCP over SSE (for remote Claude Code / Claude Desktop with sse transport):
-curl -fsS http://localhost:8766/sse          # should hang open with SSE headers
+# MCP over streamable-http (remote Claude Code / Claude Desktop via mcp-remote).
+# The /mcp endpoint only accepts POST; a quick liveness check:
+curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:8766/mcp   # → 405 or 406 = server is up
 ```
 
 ### Initial backfill
@@ -214,7 +215,10 @@ don't want to use docker (very small SBCs, etc.).
 
 ## MCP server
 
-Claude Desktop (`~/.claude/claude_desktop_config.json`):
+### Local (stdio)
+
+Claude Desktop (`~/.claude/claude_desktop_config.json`) — spawns `hhub-mcp` as
+a subprocess on the host:
 
 ```json
 {
@@ -226,6 +230,27 @@ Claude Desktop (`~/.claude/claude_desktop_config.json`):
   }
 }
 ```
+
+### Remote (streamable-http via mcp-remote)
+
+When the MCP container runs on a separate host, point Claude Desktop at it
+through `mcp-remote`:
+
+```json
+{
+  "mcpServers": {
+    "health-hub": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://<server-ip>:8766/mcp"]
+    }
+  }
+}
+```
+
+Streamable-http is preferred over `sse` because the server-side session lives
+in a single HTTP stream — when the container restarts (or `mcp-remote`
+reconnects), the next request automatically goes through `initialize` again
+instead of failing every tools/call with `-32602` against a stale session id.
 
 The MCP server opens a per-request read-only connection to the SQLite DB so
 the ingest server and cron collector can write concurrently.
